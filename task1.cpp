@@ -16,11 +16,6 @@ struct point {
     double x, y, z;
 };
 
-/**
-* glVertex2f(float x, float y).
-* The point (0.0, 0.0) represents the middle of the window (not the top left corner).
-* The "2f" suffix means 2 values of float type (x and y).
-*/
 void initGL()
 {   
     cube_size = 50.0;
@@ -159,21 +154,146 @@ void drawCubeFaces()
     glPopMatrix();
 }
 
+void drawCornerSpheres()
+{
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, cylinder_len / 2, cylinder_len / 2);
+    drawSphereOneEighth(sphere_radius, 100, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, -cylinder_len / 2, cylinder_len / 2);
+    glScalef(1.0f, -1.0f, 1.0f);
+    drawSphereOneEighth(sphere_radius, 100, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, cylinder_len / 2, cylinder_len / 2);
+    glScalef(-1.0f, 1.0f, 1.0f);
+    drawSphereOneEighth(sphere_radius, 100, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, -cylinder_len / 2, cylinder_len / 2);
+    glScalef(-1.0f, -1.0f, 1.0f);
+    drawSphereOneEighth(sphere_radius, 100, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, cylinder_len / 2, -cylinder_len / 2);
+    glScalef(1.0f, 1.0f, -1.0f);
+    drawSphereOneEighth(sphere_radius, 100, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, -cylinder_len / 2, -cylinder_len / 2);
+    glScalef(1.0f, -1.0f, -1.0f);
+    drawSphereOneEighth(sphere_radius, 100, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, cylinder_len / 2, -cylinder_len / 2);
+    glScalef(-1.0f, 1.0f, -1.0f);
+    drawSphereOneEighth(sphere_radius, 100, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, -cylinder_len / 2, -cylinder_len / 2);
+    glScalef(-1.0f, -1.0f, -1.0f);
+    drawSphereOneEighth(sphere_radius, 100, 100);
+    glPopMatrix();
+}
+
+void drawCylinderSides()
+{   
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, cylinder_len / 2, cylinder_len / 2);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, -cylinder_len / 2, cylinder_len / 2);
+    glRotatef(90.0, 1.0, 0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, -cylinder_len / 2, -cylinder_len / 2);
+    glRotatef(-180.0, 1.0, 0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, cylinder_len / 2, -cylinder_len / 2);
+    glRotatef(-90.0, 1.0, 0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, cylinder_len / 2, cylinder_len / 2);
+    glRotatef(-90.0, 0, 1.0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, -cylinder_len / 2, cylinder_len / 2);
+    glRotatef(-90.0, 0, 1.0, 0);
+    glRotatef(90.0, 1.0, 0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, -cylinder_len / 2, cylinder_len / 2);
+    glRotatef(-90.0, 0, 1.0, 0);
+    glRotatef(-180.0, 1.0, 0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, cylinder_len / 2, -cylinder_len / 2);
+    glRotatef(-180.0, 0, 1.0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, -cylinder_len / 2, -cylinder_len / 2);
+    glRotatef(-180.0, 0, 1.0, 0);
+    glRotatef(90.0, 1.0, 0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, -cylinder_len / 2, cylinder_len / 2);
+    glRotatef(180.0, 0, 0, 1.0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(cylinder_len / 2, cylinder_len / 2, -cylinder_len / 2);
+    glRotatef(90.0, 0, 1.0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cylinder_len / 2, -cylinder_len / 2, -cylinder_len / 2);
+    glRotatef(90.0, 0, 1.0, 0);
+    glRotatef(-180.0, 1.0, 0, 0);
+    drawCylinderOneFourth(sphere_radius, cylinder_len, 100);
+    glPopMatrix();
+}
+
 void display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    gluLookAt(100,100,100,0,0,0,0,1,0);
+    gluLookAt(0,50,-100,0,0,0,0,1,0);
 
     drawAxes();
     drawCubeFaces();
-
-    glPushMatrix();
-    glTranslatef(cylinder_len/2,cylinder_len/2,cylinder_len/2);
-    drawSphereOneEighth(sphere_radius, 100, 100);
-    glPopMatrix();
+    drawCornerSpheres();
+    drawCylinderSides();
 
     glutSwapBuffers();
 }
