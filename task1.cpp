@@ -22,7 +22,11 @@ struct point {
 * The "2f" suffix means 2 values of float type (x and y).
 */
 void initGL()
-{
+{   
+    cube_size = 50.0;
+    sphere_radius = 10.0;
+    cylinder_len = cube_size - 2*sphere_radius;
+
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClearDepth(1.0f);
     glEnable(GL_DEPTH_TEST);
@@ -78,20 +82,97 @@ void drawSphereOneEighth(double radius, int slices, int stacks)
     }
 }
 
+void drawCylinderOneFourth(double radius,double len,int slices)
+{
+    std::vector<point> points;
+
+    for (int i = 0; i <= slices; i++)
+    {
+        point p;
+        p.x = radius * cos(((double)i / (double)slices) * (pi / 2));
+        p.y = radius * sin(((double)i / (double)slices) * (pi / 2));
+        p.z = 0;
+        points.push_back(p);
+    }
+
+    glColor3f(0.0f, 1.0f, 0.0f);
+    for (int i = 0; i < slices; i++)
+    {
+        glBegin(GL_QUADS);
+        {
+            glVertex3f(points[i].x, points[i].y, points[i].z);
+            glVertex3f(points[i].x, points[i].y, points[i].z-len);
+            glVertex3f(points[i+1].x, points[i+1].y, points[i+1].z-len);
+            glVertex3f(points[i+1].x, points[i+1].y, points[i+1].z);
+        }
+        glEnd();
+    }
+}
+
+void drawSquare(double len)
+{   
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glBegin(GL_QUADS);
+    {
+        glVertex3f(-len / 2, -len / 2, 0);
+        glVertex3f(len / 2, -len / 2, 0);
+        glVertex3f(len/2,len/2,0);
+        glVertex3f(-len / 2, len / 2, 0);
+    }
+    glEnd();
+}
+
+void drawCubeFaces()
+{
+    glPushMatrix();
+    glTranslatef(0, 0, cube_size/2);
+    drawSquare(cylinder_len);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(cube_size/2, 0, 0);
+    glRotatef(90.0, 0, 1.0, 0);
+    drawSquare(cylinder_len);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(0, 0, -cube_size/2);
+    drawSquare(cylinder_len);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(-cube_size/2, 0, 0);
+    glRotatef(90.0, 0, 1.0, 0);
+    drawSquare(cylinder_len);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(0, cube_size/2, 0);
+    glRotatef(90.0, 1.0, 0, 0);
+    drawSquare(cylinder_len);
+    glPopMatrix();
+
+    glPushMatrix();
+    glTranslatef(0, -cube_size/2, 0);
+    glRotatef(90.0, 1.0, 0, 0);
+    drawSquare(cylinder_len);
+    glPopMatrix();
+}
+
 void display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    gluLookAt(50,50,50,0,0,0,0,1,0);
+    gluLookAt(100,100,100,0,0,0,0,1,0);
 
-    glPushMatrix();
     drawAxes();
-    glPopMatrix();
+    drawCubeFaces();
 
     glPushMatrix();
-    drawSphereOneEighth(10, 100, 100);
+    glTranslatef(cylinder_len/2,cylinder_len/2,cylinder_len/2);
+    drawSphereOneEighth(sphere_radius, 100, 100);
     glPopMatrix();
 
     glutSwapBuffers();
