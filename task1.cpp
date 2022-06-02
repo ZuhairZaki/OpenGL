@@ -12,15 +12,98 @@ double cube_size;
 double cylinder_len;
 double sphere_radius;
 
+double camera_x, camera_y, camera_z;
+double look_x, look_y, look_z;
+double up_x, up_y, up_z;
+
+double angle_y, angle_x, angle_z;
+double camera_angle;
+
 struct point {
     double x, y, z;
 };
+
+class Vector
+{
+    double x, y, z;
+
+public:
+    Vector() {}
+    Vector(double, double, double);
+    Vector operator + (Vector const&);
+    Vector operator - (Vector const&);
+    Vector cross(Vector const&);
+    Vector normalize();
+};
+
+Vector::Vector(double comp_x, double comp_y, double comp_z)
+{
+    x = comp_x;
+    y = comp_y;
+    z = comp_z;
+}
+
+Vector Vector::operator + (Vector const& vec)
+{
+    Vector res;
+    res.x = x + vec.x;
+    res.y = y + vec.y;
+    res.z = z + vec.z;
+    return res;
+}
+
+Vector Vector::operator - (Vector const& vec)
+{
+    Vector res;
+    res.x = x - vec.x;
+    res.y = y - vec.y;
+    res.z = z - vec.z;
+    return res;
+}
+
+Vector Vector::cross(Vector const& vec)
+{
+    Vector res;
+    res.x = y * vec.z - z * vec.y;
+    res.y = z * vec.x - x * vec.z;
+    res.z = x * vec.y - y * vec.x;
+    return res;
+}
+
+Vector Vector::normalize()
+{
+    double mag = sqrt(x * x + y * y + z * z);
+
+    Vector res;
+    res.x = x / mag;
+    res.y = y / mag;
+    res.z = z / mag;
+    return res;
+}
 
 void initGL()
 {   
     cube_size = 50.0;
     sphere_radius = 10.0;
     cylinder_len = cube_size - 2*sphere_radius;
+
+    camera_x = 0;
+    camera_y = 0;
+    camera_z = 100;
+    
+    look_x = 0;
+    look_y = 0;
+    look_z = 0;
+
+    up_x = 0;
+    up_y = 1.0;
+    up_z = 0;
+
+    angle_x = pi/18;
+    angle_y = pi/18;
+    angle_z = pi/18;
+
+    camera_angle = 0;
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClearDepth(1.0f);
@@ -288,7 +371,7 @@ void display(void) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    gluLookAt(0,50,-100,0,0,0,0,1,0);
+    gluLookAt(camera_x,camera_y,camera_z,look_x,look_y,look_z,up_x,up_y,up_z);
 
     drawAxes();
     drawCubeFaces();
@@ -297,6 +380,171 @@ void display(void) {
 
     glutSwapBuffers();
 }
+
+void keyboardListener(unsigned char key, int x, int y) {
+    double direc_x, direc_y, direc_z;
+    double rotate_x, rotate_y, rotate_z;
+
+    switch (key) {
+
+    case '1':
+        //look_x = (look_x - camera_x) * cos(angle_y) + (look_z - camera_z) * sin(angle_y) + camera_x;
+        //look_z = (camera_x - look_x) * sin(angle_y) + (look_z - camera_z) * cos(angle_y) + camera_z;
+
+        direc_x = (look_x - camera_x) * cos(camera_angle) + (look_y - camera_y) * (-sin(camera_angle));
+        direc_y = (look_x - camera_x) * sin(camera_angle) + (look_y - camera_y) * cos(camera_angle);
+        direc_z = (look_z - camera_z);
+
+        rotate_x = direc_x * cos(angle_y) + direc_z * sin(angle_y);
+        rotate_y = direc_y;
+        rotate_z = direc_x*(-sin(angle_y)) + direc_z * cos(angle_y);
+
+        direc_x = rotate_x* cos(camera_angle) + rotate_y * sin(camera_angle);
+        direc_y = rotate_x * (-sin(camera_angle)) + rotate_y * cos(camera_angle);
+        direc_z = rotate_z;
+
+        look_x = direc_x + camera_x;
+        look_y = direc_y + camera_y;
+        look_z = direc_z + camera_z;
+        break;
+    case '2':
+        //look_x = (look_x - camera_x) * cos(angle_y) + (camera_z - look_z) * sin(angle_y) + camera_x;
+        //look_z = (look_x - camera_x) * sin(angle_y) + (look_z - camera_z) * cos(angle_y) + camera_z;
+
+        direc_x = (look_x - camera_x) * cos(camera_angle) + (look_y - camera_y) * (-sin(camera_angle));
+        direc_y = (look_x - camera_x) * sin(camera_angle) + (look_y - camera_y) * cos(camera_angle);
+        direc_z = (look_z - camera_z);
+
+        rotate_x = direc_x * cos(angle_y) + direc_z * (-sin(angle_y));
+        rotate_y = direc_y;
+        rotate_z = direc_x * sin(angle_y) + direc_z * cos(angle_y);
+
+        direc_x = rotate_x * cos(camera_angle) + rotate_y * sin(camera_angle);
+        direc_y = rotate_x * (-sin(camera_angle)) + rotate_y * cos(camera_angle);
+        direc_z = rotate_z;
+
+        look_x = direc_x + camera_x;
+        look_y = direc_y + camera_y;
+        look_z = direc_z + camera_z;
+        break;
+    case '3':
+        //look_y = (look_y - camera_y) * cos(angle_x) + (camera_z - look_z) * sin(angle_x) + camera_y;
+        //look_z = (look_y - camera_y) * sin(angle_x) + (look_z - camera_z) * cos(angle_x) + camera_z;
+
+        direc_x = (look_x - camera_x) * cos(camera_angle) + (look_y - camera_y) * (-sin(camera_angle));
+        direc_y = (look_x - camera_x) * sin(camera_angle) + (look_y - camera_y) * cos(camera_angle);
+        direc_z = (look_z - camera_z);
+
+        rotate_x = direc_x;
+        rotate_y = direc_y * cos(angle_x) + direc_z * (-sin(angle_x));
+        rotate_z = direc_y * sin(angle_x) + direc_z * cos(angle_x);
+
+        direc_x = rotate_x * cos(camera_angle) + rotate_y * sin(camera_angle);
+        direc_y = rotate_x * (-sin(camera_angle)) + rotate_y * cos(camera_angle);
+        direc_z = rotate_z;
+
+        look_x = direc_x + camera_x;
+        look_y = direc_y + camera_y;
+        look_z = direc_z + camera_z;
+        break;
+    case '4':
+        //look_y = (look_y - camera_y) * cos(angle_x) + (look_z - camera_z) * sin(angle_x) + camera_y;
+        //look_z = (camera_y - look_y) * sin(angle_x) + (look_z - camera_z) * cos(angle_x) + camera_z;
+
+        direc_x = (look_x - camera_x) * cos(camera_angle) + (look_y - camera_y) * (-sin(camera_angle));
+        direc_y = (look_x - camera_x) * sin(camera_angle) + (look_y - camera_y) * cos(camera_angle);
+        direc_z = (look_z - camera_z);
+
+        rotate_x = direc_x;
+        rotate_y = direc_y * cos(angle_x) + direc_z * sin(angle_x);
+        rotate_z = direc_y * (-sin(angle_x)) + direc_z * cos(angle_x);
+
+        direc_x = rotate_x * cos(camera_angle) + rotate_y * sin(camera_angle);
+        direc_y = rotate_x * (-sin(camera_angle)) + rotate_y * cos(camera_angle);
+        direc_z = rotate_z;
+
+        look_x = direc_x + camera_x;
+        look_y = direc_y + camera_y;
+        look_z = direc_z + camera_z;
+        break;
+    case '5':
+        camera_angle += angle_z;
+        up_x = up_x * cos(angle_z) + up_y * sin(angle_z);
+        up_y = -up_x * sin(angle_z) + up_y * cos(angle_z);
+        break;
+    case '6':
+        camera_angle -= angle_z;
+        up_x = up_x * cos(angle_z) - up_y * sin(angle_z);
+        up_y = up_x * sin(angle_z) + up_y * cos(angle_z);
+        break;
+    default:
+        break;
+    }
+}
+
+void specialKeyListener(int key, int x, int y) {
+    switch (key) {
+    case GLUT_KEY_DOWN:		
+        camera_z += 2;
+        look_z += 2;
+        break;
+    case GLUT_KEY_UP:		
+        camera_z -= 2;
+        look_z -= 2;
+        break;
+
+    case GLUT_KEY_RIGHT:
+        camera_x += 2;
+        look_x += 2;
+        break;
+    case GLUT_KEY_LEFT:
+        camera_x -= 2;
+        look_x -= 2;
+        break;
+
+    case GLUT_KEY_PAGE_UP:
+        camera_y += 2;
+        look_y += 2;
+        break;
+    case GLUT_KEY_PAGE_DOWN:
+        camera_y -= 2;
+        look_y -= 2;
+        break;
+
+    case GLUT_KEY_HOME:
+        if (sphere_radius < (cube_size / 2)) {
+            sphere_radius += 1;
+            cylinder_len = cube_size - 2 * sphere_radius;
+        }
+        break;
+    case GLUT_KEY_END:
+        if (sphere_radius > 0) {
+            sphere_radius -= 1;
+            cylinder_len = cube_size - 2 * sphere_radius;
+        }
+        break;
+
+    default:
+        break;
+    }
+}
+
+void mouseListener(int button, int state, int x, int y) {
+    switch (button) {
+    case GLUT_LEFT_BUTTON:
+        break;
+
+    case GLUT_RIGHT_BUTTON:
+        break;
+
+    case GLUT_MIDDLE_BUTTON:
+        break;
+
+    default:
+        break;
+    }
+}
+
 
 void reshape(GLsizei width, GLsizei height) {
     if (height == 0) height = 1;                
@@ -310,16 +558,27 @@ void reshape(GLsizei width, GLsizei height) {
     gluPerspective(80.0f, aspect, 0.1f, 1000.0f);
 }
 
+void animate() {
+    glutPostRedisplay();
+}
+
+
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-    glutInitWindowSize(640, 640);                    // window size
-    glutInitWindowPosition(200, 200);                // distance from the top-left screen
-    glutCreateWindow("Camera Movement");    // message displayed on top bar window
+    glutInitWindowSize(640, 640);                    
+    glutInitWindowPosition(200, 200);                
+    glutCreateWindow("Camera Movement"); 
+
+    initGL();
 
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
-    initGL();
+    glutIdleFunc(animate);
+
+    glutKeyboardFunc(keyboardListener);
+    glutSpecialFunc(specialKeyListener);
+    glutMouseFunc(mouseListener);
 
     glutMainLoop();
     return 0;
