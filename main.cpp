@@ -13,8 +13,7 @@ double cylinder_len;
 double sphere_radius;
 
 double camera_speed;
-double yaw;
-double yaw_step;
+double yaw_step,pitch_step,roll_step;
 
 struct point {
     double x, y, z;
@@ -27,6 +26,7 @@ public:
 
     Vector() {}
     Vector(double, double, double);
+    double Magnitude();
     Vector operator + (Vector const&);
     Vector operator - (Vector const&);
     Vector cross(Vector const&);
@@ -38,6 +38,11 @@ Vector::Vector(double comp_x, double comp_y, double comp_z)
     x = comp_x;
     y = comp_y;
     z = comp_z;
+}
+
+double Vector::Magnitude()
+{
+    return sqrt(x * x + y * y + z * z);
 }
 
 Vector Vector::operator + (Vector const& vec)
@@ -87,6 +92,15 @@ Vector operator*(double scale, Vector const& vec)
     return res;
 }
 
+Vector operator*(Vector const& vec, double scale)
+{
+    Vector res;
+    res.x = vec.x*scale;
+    res.y = vec.y*scale;
+    res.z = vec.z*scale;
+    return res;
+}
+
 Vector camera_pos, direc, camera_up;
 
 void initGL()
@@ -96,8 +110,9 @@ void initGL()
     cylinder_len = cube_size - 2*sphere_radius;
 
     camera_speed = 2.0;
-    yaw = 0;
-    yaw_step = 5;
+    yaw_step = pi / 36;
+    pitch_step = pi / 36;
+    roll_step = pi / 36;
 
     camera_pos.x = 0;
     camera_pos.y = 0;
@@ -390,22 +405,34 @@ void display(void) {
 }
 
 void keyboardListener(unsigned char key, int x, int y) {
-
-    double yaw_radian;
+    Vector target,right;
+    target = direc.normalize();
+    right = target.cross(camera_up).normalize();
+    camera_up = right.cross(target);
 
     switch (key) {
 
     case '1':
+        target = target * cos(yaw_step) - right * sin(yaw_step);
+        direc = direc.Magnitude() * target;
         break;
     case '2':
+        target = target * cos(yaw_step) + right * sin(yaw_step);
+        direc = direc.Magnitude() * target;
         break;
     case '3':
+        target = target * cos(pitch_step) + camera_up * sin(pitch_step);
+        direc = direc.Magnitude() * target;
         break;
     case '4':
+        target = target * cos(pitch_step) - camera_up * sin(pitch_step);
+        direc = direc.Magnitude() * target;
         break;
     case '5':
+        camera_up = camera_up * cos(roll_step) + right * sin(roll_step);
         break;
     case '6':
+        camera_up = camera_up * cos(roll_step) - right * sin(roll_step);
         break;
     default:
         break;
