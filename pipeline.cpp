@@ -54,6 +54,7 @@ public:
     double Magnitude();
     Vector operator + (Vector const&);
     Vector operator - (Vector const&);
+    double dot(Vector const&);
     Vector cross(Vector const&);
     Vector normalize();
 };
@@ -86,6 +87,11 @@ Vector Vector::operator - (Vector const& vec)
     res.y = y - vec.y;
     res.z = z - vec.z;
     return res;
+}
+
+double Vector::dot(Vector const& vec)
+{
+    return x * vec.x + y * vec.y + z * vec.z;
 }
 
 Vector Vector::cross(Vector const& vec)
@@ -251,6 +257,7 @@ point Matrix::operator*(point const& p)
     res.w = mat[3][0]*p.x + mat[3][1]*p.y + mat[3][2]*p.z + mat[3][3]*p.w;
 
     return res;
+
 }
 
 Matrix operator*(double scale, Matrix const& mat)
@@ -267,6 +274,71 @@ Matrix operator*(Matrix const& mat, double scale)
     for(int i=0;i<mat.rows;i++)
         for(int j=0;j<mat.cols;j++)
             res.mat[i][j] = mat.mat[i][j]*scale;
+}
+
+Vector RodriguesFormula(Vector unitVec, Vector a, double angle)
+{
+    double c = cos(angle*pi/180);
+    double s = sin(angle*pi/180);
+
+    return c*unitVec + (1-c)*(a.dot(unitVec))*a + s*(a.cross(unitVec));
+}
+
+Matrix createIdentityMatrx(int n)
+{
+    Matrix I(n,n);
+    for(int i=0;i<n;i++)
+        I.mat[i][i] = 1;
+}
+
+Matrix createTranslationMatrix(double tx, double ty, double tz)
+{
+    Matrix T(4,4);
+    T.mat[0][0] = 1;
+    T.mat[1][1] = 1;
+    T.mat[2][2] = 1;
+    T.mat[3][3] = 1;
+    T.mat[0][3] = tx;
+    T.mat[1][3] = ty;
+    T.mat[2][3] = tz;
+    return T;
+}
+
+Matrix createRotationMatrix(double angle, double ax, double ay, double az)
+{
+    Matrix R(4,4);
+    R.mat[3][3] = 1;
+
+    Vector rotAxis(ax,ay,az);
+    rotAxis.normalize();
+
+    Vector c1 = RodriguesFormula(Vector(1,0,0),rotAxis,angle);
+    Vector c2 = RodriguesFormula(Vector(0,1,0),rotAxis,angle);
+    Vector c3 = RodriguesFormula(Vector(0,0,1),rotAxis,angle);
+
+    R.mat[0][0] = c1.x;
+    R.mat[1][0] = c1.y;
+    R.mat[2][0] = c1.z;
+
+    R.mat[0][1] = c2.x;
+    R.mat[1][1] = c2.y;
+    R.mat[2][1] = c2.z;
+
+    R.mat[0][2] = c3.x;
+    R.mat[1][2] = c3.y;
+    R.mat[2][2] = c3.z;
+
+    return R;
+}
+
+Matrix createScalingMatrix(double sx, double sy, double sz)
+{
+    Matrix S(4,4);
+    S.mat[0][0] = sx;
+    S.mat[1][1] = sy;
+    S.mat[2][2] = sz;
+    S.mat[3][3] = 1;
+    return S;
 }
 
 int main()
