@@ -1,9 +1,12 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<math.h>
+
+#include<iostream>
+#include<fstream>
+#include<cmath>
 #include<stack>
 
 #define pi (2*acos(0.0))
+
+using namespace std;
 
 class point
 {
@@ -11,6 +14,7 @@ public:
     double x, y, z, w;
 
     point();
+    point(double,double,double);
     point(double,double,double,double);
     void make_homogeneous();
 };
@@ -23,16 +27,20 @@ point::point()
         w = 1;
 }
 
+point::point(double px, double py, double pz)
+{
+        x = px;
+        y = py;
+        z = pz;
+        w = 1;
+}
+
 point::point(double px, double py, double pz, double pw)
 {   
     x = px;
     y = py;
     z = pz;
-
-    if(pw)
-        w = pw;
-    else
-        w = 1;
+    w = pw;
 }
 
 void point::make_homogeneous()
@@ -257,7 +265,6 @@ point Matrix::operator*(point const& p)
     res.w = mat[3][0]*p.x + mat[3][1]*p.y + mat[3][2]*p.z + mat[3][3]*p.w;
 
     return res;
-
 }
 
 Matrix operator*(double scale, Matrix const& mat)
@@ -266,6 +273,7 @@ Matrix operator*(double scale, Matrix const& mat)
     for(int i=0;i<mat.rows;i++)
         for(int j=0;j<mat.cols;j++)
             res.mat[i][j] = scale*mat.mat[i][j];
+    return res;
 }
 
 Matrix operator*(Matrix const& mat, double scale)
@@ -274,6 +282,7 @@ Matrix operator*(Matrix const& mat, double scale)
     for(int i=0;i<mat.rows;i++)
         for(int j=0;j<mat.cols;j++)
             res.mat[i][j] = mat.mat[i][j]*scale;
+    return res;
 }
 
 Vector RodriguesFormula(Vector unitVec, Vector a, double angle)
@@ -289,6 +298,7 @@ Matrix createIdentityMatrx(int n)
     Matrix I(n,n);
     for(int i=0;i<n;i++)
         I.mat[i][i] = 1;
+    return I;
 }
 
 Matrix createTranslationMatrix(double tx, double ty, double tz)
@@ -341,8 +351,131 @@ Matrix createScalingMatrix(double sx, double sy, double sz)
     return S;
 }
 
-int main()
+Vector eye, look, up;
+double fovY, aspect, zNear, zFar;
+
+void stage1()
 {
+    ifstream fin("scene.txt");
+    ofstream fout("stage1.txt");
+
+    fin >> eye.x >> eye.y >> eye.z;
+    fin >> look.x >> look.y >> look.z;
+    fin >> up.x >> up.y >> up.z;
+    fin >> fovY >> aspect >> zNear >> zFar;
+
+    stack<Matrix> matStack;
+    Matrix modelMatrix = createIdentityMatrx(4);
+    while (true)
+    {
+        string command;
+        fin >> command;
+
+        if(command=="triangle")
+        {
+            double x,y,z;
+            for(int i=0;i<3;i++){
+                fin >> x >> y >> z;
+                point p(x,y,z);
+                p = modelMatrix*p;
+                fout << p.x << " " << p.y << " " << p.z << endl;
+            }
+        }
+        else if(command=="translate")
+        {
+            double x,y,z;
+            fin >> x >> y >> z;
+            Matrix T = createTranslationMatrix(x,y,z);
+            modelMatrix = modelMatrix*T;
+        }
+        else if(command=="scale")
+        {
+            double x,y,z;
+            fin >> x >> y >> z;
+            Matrix S = createScalingMatrix(x,y,z);
+            modelMatrix = modelMatrix*S;
+        }
+        else if (command=="rotate")
+        {
+            double angle,ax,ay,az;
+            fin >> angle >> ax >> ay >> az;
+            Matrix R = createRotationMatrix(angle,ax,ay,az);
+            modelMatrix = modelMatrix*R;
+        }
+        else if(command=="push")
+        {
+            matStack.push(modelMatrix);
+            modelMatrix = createIdentityMatrx(4);
+        }
+        else if(command=="pop")
+        {
+            modelMatrix = matStack.top();
+            matStack.pop();
+        }
+        else if(command=="end")
+        {
+            break;
+        }
+        
+    }
+
+    fin.close();
+    fout.close();
+}
+
+void stage2()
+{
+    ifstream fin("stage1.txt");
+    ofstream fout("stage2.txt");
+
+    Vector l = look - eye;
+    l.normalize();
+    Vector r = l.cross(up);
+    r.normalize();
+    Vector u = r.cross(l);
+
+    Matrix T = createTranslationMatrix(-eye.x,-eye.y,-eye.z);
+    Matrix R(4,4);
+    R.mat[3][3] = 1;
+
+    R.mat[0][0] = r.x;
+    R.mat[0][1] = r.y;
+    R.mat[0][2] = r.z;
+
+    R.mat[1][0] = u.x;
+    R.mat[1][1] = u.y;
+    R.mat[1][2] = u.z;
+
+    R.mat[2][0] = -l.x;
+    R.mat[2][1] = -l.y;
+    R.mat[2][2] = -l.z;
+
+    Matrix V = R*T;
+
+    while (!fin.eof())
+    {
+        double x,y,z;
+        fin >> x >> y >> z;
+
+        if(fin.eof())
+            break;
+        
+        point p(x,y,z);
+        p = V*p;
+        fout << p.x << " " << p.y << " " << p.z << endl;
+    }
+}
+
+int main()
+{   
+    ifstream fin("scene.txt");
+
+    while(!fin.eof())
+    {
+        double x,y,z;
+        fin >> x >> y >> z;
+        cout << x << " " << y << " " << z << endl;
+    }
     return 0;
 }
 
