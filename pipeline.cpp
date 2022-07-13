@@ -452,14 +452,9 @@ void stage2()
 
     Matrix V = R*T;
 
-    while (!fin.eof())
+    double x,y,z;
+    while (fin>>x>>y>>z)
     {
-        double x,y,z;
-        fin >> x >> y >> z;
-
-        if(fin.eof())
-            break;
-        
         point p(x,y,z);
         p = V*p;
         fout << p.x << " " << p.y << " " << p.z << endl;
@@ -468,14 +463,6 @@ void stage2()
 
 int main()
 {   
-    ifstream fin("scene.txt");
-
-    while(!fin.eof())
-    {
-        double x,y,z;
-        fin >> x >> y >> z;
-        cout << x << " " << y << " " << z << endl;
-    }
     return 0;
 }
 
