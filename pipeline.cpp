@@ -459,6 +459,37 @@ void stage2()
         p = V*p;
         fout << p.x << " " << p.y << " " << p.z << endl;
     }
+
+    fin.close();
+    fout.close();
+}
+
+void stage3()
+{
+    ifstream fin("stage2.txt");
+    ofstream fout("stage3.txt");
+
+    double fovX = fovY*aspect;
+    double t = zNear*tan(fovY/2);
+    double r = zNear*tan(fovX/2);
+
+    Matrix P(4,4);
+    P.mat[0][0] = zNear/r;
+    P.mat[1][1] = zNear/t;
+    P.mat[2][2] = -(zFar+zNear)/(zFar-zNear);
+    P.mat[2][3] = -(2*zFar*zNear)/(zFar-zNear);
+    P.mat[3][2] = -1;
+
+    double x,y,z;
+    while (fin>>x>>y>>z)
+    {
+        point p(x,y,z);
+        p = P*p;
+        fout << p.x << " " << p.y << " " << p.z << endl;
+    }
+
+    fin.close();
+    fout.close();
 }
 
 int main()
