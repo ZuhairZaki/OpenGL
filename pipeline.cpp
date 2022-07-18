@@ -154,10 +154,12 @@ public:
      int rows,cols;
      double** mat;
 
+     Matrix() {}
      Matrix(int,int);
      Matrix(const Matrix&);
     ~ Matrix();
     void transpose();
+    Matrix& operator=(const Matrix&);
     Matrix operator + (Matrix const&);
     Matrix operator - (Matrix const&);
     Matrix operator * (Matrix const&);
@@ -179,13 +181,9 @@ public:
 }
 
 Matrix::Matrix(const Matrix& m)
-{
+{   
     rows = m.rows;
     cols = m.cols;
-
-    for(int i=0;i<rows;i++)
-        free(mat[i]);
-    free(mat);
 
     mat = (double**) malloc(rows*sizeof(double*));
     for(int i=0;i<rows;i++)
@@ -222,6 +220,26 @@ void Matrix::transpose()
     for(int i=0;i<rows;i++)
         free(arr[i]);
     free(arr);
+}
+
+Matrix& Matrix::operator=(const Matrix& m)
+{   
+    for(int i=0;i<rows;i++)
+        free(mat[i]);
+    free(mat);
+
+    rows = m.rows;
+    cols = m.cols;
+
+    mat = (double**) malloc(rows*sizeof(double*));
+    for(int i=0;i<rows;i++)
+        mat[i] = (double*) malloc(cols*sizeof(double));
+
+    for(int i=0;i<rows;i++)
+        for(int j=0;j<cols;j++)
+            mat[i][j] = m.mat[i][j];    
+
+    return *this;
 }
 
 Matrix Matrix::operator+(Matrix const& m)
@@ -328,7 +346,7 @@ Matrix createRotationMatrix(double angle, double ax, double ay, double az)
     R.mat[3][3] = 1;
 
     Vector rotAxis(ax,ay,az);
-    rotAxis.normalize();
+    rotAxis = rotAxis.normalize();
 
     Vector c1 = RodriguesFormula(Vector(1,0,0),rotAxis,angle);
     Vector c2 = RodriguesFormula(Vector(0,1,0),rotAxis,angle);
@@ -416,13 +434,13 @@ double bottom_scanline(Triangle tri, double bottom_y, double del_y)
 
 double* left_right_scanline(Triangle tri, double row, double left_x, double right_x, double del_x)
 {
-    Vector v1 = tri.Points[1].toVector() - tri.Points[0].toVector();
-    Vector v2 = tri.Points[2].toVector() - tri.Points[1].toVector();
-    Vector v3 = tri.Points[0].toVector() - tri.Points[2].toVector();
+    Vector v1(tri.Points[1].x - tri.Points[0].x,tri.Points[1].y - tri.Points[0].y,0);
+    Vector v2(tri.Points[2].x - tri.Points[1].x,tri.Points[2].y - tri.Points[1].y,0);
+    Vector v3(tri.Points[0].x - tri.Points[2].x,tri.Points[0].y - tri.Points[2].y,0);
 
-    double t1 = (row - v1.y)/tri.Points[0].y;
-    double t2 = (row - v2.y)/tri.Points[1].y;
-    double t3 = (row - v3.y)/tri.Points[2].y;
+    double t1 = (row - tri.Points[0].y)/v1.y;
+    double t2 = (row - tri.Points[1].y)/v2.y;
+    double t3 = (row - tri.Points[2].y)/v3.y;
 
     double max_x = left_x -1, min_x = right_x + 1;
     if(t1 > 0 && t1 < 1)
@@ -467,7 +485,7 @@ double* left_right_scanline(Triangle tri, double row, double left_x, double righ
     {
         double cell_x = right_x - i*del_x;
         if(max_x > cell_x){
-            res[0] = screen_width - i - 1;
+            res[1] = screen_width - i - 1;
             break;
         }
     }
@@ -493,7 +511,7 @@ void stage1()
         fin >> command;
 
         if(command=="triangle")
-        {
+        {   
             double x,y,z;
             for(int i=0;i<3;i++){
                 fin >> x >> y >> z;
@@ -510,7 +528,7 @@ void stage1()
             modelMatrix = modelMatrix*T;
         }
         else if(command=="scale")
-        {
+        {   
             double x,y,z;
             fin >> x >> y >> z;
             Matrix S = createScalingMatrix(x,y,z);
@@ -526,7 +544,6 @@ void stage1()
         else if(command=="push")
         {
             matStack.push(modelMatrix);
-            modelMatrix = createIdentityMatrx(4);
         }
         else if(command=="pop")
         {
@@ -550,12 +567,13 @@ void stage2()
     ofstream fout("stage2.txt");
 
     Vector l = look - eye;
-    l.normalize();
+    l = l.normalize();
     Vector r = l.cross(up);
-    r.normalize();
+    r = r.normalize();
     Vector u = r.cross(l);
 
     Matrix T = createTranslationMatrix(-eye.x,-eye.y,-eye.z);
+
     Matrix R(4,4);
     R.mat[3][3] = 1;
 
@@ -591,8 +609,8 @@ void stage3()
     ofstream fout("stage3.txt");
 
     double fovX = fovY*aspect;
-    double t = zNear*tan(fovY/2);
-    double r = zNear*tan(fovX/2);
+    double t = zNear*tan(fovY*pi/360);
+    double r = zNear*tan(fovX*pi/360);
 
     Matrix P(4,4);
     P.mat[0][0] = zNear/r;
@@ -606,6 +624,7 @@ void stage3()
     {
         point p(x,y,z);
         p = P*p;
+        p.make_homogeneous();
         fout << p.x << " " << p.y << " " << p.z << endl;
     }
 
@@ -625,7 +644,6 @@ void stage4()
     conf.close();
 
     ifstream fin("stage3.txt");
-    ofstream fout("stage4.txt");
     ofstream zout("z_buffer.txt");
     
     double** zBuffer = (double**) malloc(screen_height*sizeof(double*));
@@ -639,7 +657,7 @@ void stage4()
     bitmap_image image(screen_width,screen_height);
     for(int i=0;i<screen_height;i++)
         for(int j=0;j<screen_width;j++)
-            image.set_pixel(i,j,255,255,255);
+            image.set_pixel(i,j,0,0,0);
 
     double dx = (-x_lim*2)/screen_width;
     double dy = (-y_lim*2)/screen_height;
@@ -669,7 +687,7 @@ void stage4()
         t.color.b = rand()%256;
 
         Vector n = (t.Points[1].toVector() - t.Points[0].toVector()).cross(t.Points[2].toVector() - t.Points[0].toVector());
-        n.normalize();
+        n = n.normalize();
         double d = n.dot(t.Points[0].toVector());
 
         double top_row = top_scanline(t,Top_y,dy);
@@ -677,7 +695,7 @@ void stage4()
         for(int i=top_row;i<=bottom_row;i++)
         {   
             double cell_y = Top_y - i*dy;
-            double* cols = left_right_scanline(t,i,Left_x,-Left_x,dx);
+            double* cols = left_right_scanline(t,cell_y,Left_x,-Left_x,dx);
 
             for(int j=cols[0];j<=cols[1];j++)
             {   
@@ -712,40 +730,17 @@ void stage4()
     delete zBuffer;
 
     fin.close();
-    fout.close();
     zout.close();
 }
 
 int main()
 {   
-    srand(time(NULL));
+    //srand(time(NULL));
 
-    ifstream fin("test.txt");
-
-    while(!fin.eof())
-    {
-        Triangle t;
-        for(int i=0;i<3;i++)
-        {   
-            double x,y,z;
-            fin >> x >> y >> z;
-
-            if(fin.eof())
-                break;
-
-            cout << x << " " << y << " " << z << endl;
-            
-            point p(x,y,z);
-            t.Points[i] = p;
-        }
-
-        if(fin.eof())
-            break;
-
-        cout<<"Triangle"<<endl;
-    }
-
-    fin.close();
+    stage1();
+    stage2();
+    stage3();
+    stage4();
     return 0;
 }
 
