@@ -1,6 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
-#include<cmath>
+#include<math.h>
 #include<vector>
 
 #include <GL\freeglut.h>
@@ -289,7 +289,7 @@ void Sphere::draw()
         }
     }
 
-    glColor3f(1.0f, 0.0f, 0.0f);
+    glColor3f(color[0], color[1], color[2]);
     for (int i = 0; i < stacks; i++)
     {
         for (int j = 0; j < slices; j++)
@@ -346,6 +346,25 @@ void Triangle::draw()
     } glEnd();
 
     glPopMatrix();
+}
+
+class Quadric :public Object
+{   
+    double eqn_coeff[10];
+    double cube_dim[3];
+public:
+    Quadric() {}
+    Quadric(Vector, double*, double*);
+    double intersect(Ray*, double*, int);
+};
+
+Quadric::Quadric(Vector ref_point, double* dim, double* coeff):Object(ref_point)
+{
+    for (int i = 0; i < 3; i++)
+        this->cube_dim[i] = dim[i];
+
+    for (int i = 0; i < 10; i++)
+        this->eqn_coeff[i] = coeff[i];
 }
 
 class Floor:public Object
@@ -708,6 +727,162 @@ double Triangle::intersect(Ray* r, double* col, int level)
     return t;
 }
 
+double Quadric::intersect(Ray* r, double* col, int level)
+{
+    double t;
+
+    double coeff_a = eqn_coeff[0] * r->dir.x * r->dir.x + eqn_coeff[1] * r->dir.y * r->dir.y + eqn_coeff[2] * r->dir.z * r->dir.z +
+        eqn_coeff[3] * r->dir.x * r->dir.y + eqn_coeff[4] * r->dir.x * r->dir.z + eqn_coeff[5] * r->dir.y * r->dir.z;
+    double coeff_b = 2 * (eqn_coeff[0] * r->start.x * r->dir.x + eqn_coeff[1] * r->start.y * r->dir.y + eqn_coeff[2] * r->start.z * r->dir.z) +
+        eqn_coeff[3] * (r->start.x * r->dir.y + r->start.y * r->dir.x) + eqn_coeff[4] * (r->start.x * r->dir.z + r->start.z * r->dir.x) + eqn_coeff[5] * (r->start.z * r->dir.y + r->start.y * r->dir.z) +
+        eqn_coeff[6] * r->dir.x + eqn_coeff[7] * r->dir.y + eqn_coeff[8] * r->dir.z;
+    double coeff_c = eqn_coeff[0] * r->start.x * r->start.x + eqn_coeff[1] * r->start.y * r->start.y + eqn_coeff[2] * r->start.z * r->start.z +
+        eqn_coeff[3] * r->start.x * r->start.y + eqn_coeff[4] * r->start.x * r->start.z + eqn_coeff[5] * r->start.z * r->start.y +
+        eqn_coeff[6] * r->start.x + eqn_coeff[7] * r->start.y + eqn_coeff[8] * r->start.z + eqn_coeff[9];
+
+    double determinant = coeff_b * coeff_b - 4 * coeff_a * coeff_c;
+    if (determinant < 0)
+        t = -1.0;
+    else {
+        double t1 = ( -coeff_b + sqrt(determinant)) / 2 * coeff_a;
+        double t2 = ( -coeff_b - sqrt(determinant)) / 2 * coeff_a;
+
+        if (t1 < 0 && t2 < 0)
+            t = -1.0;
+        else
+        {
+            if (t1 > 0)
+            {
+                Vector ins = r->start + t1 * r->dir;
+                if (cube_dim[0] != 0)
+                    if (ins.x > (cube_dim[0] / 2) || ins.x < (-cube_dim[0] / 2))
+                        t1 = -1.0;
+                if (cube_dim[1] != 0)
+                    if (ins.y > (cube_dim[1] / 2) || ins.y < (-cube_dim[1] / 2))
+                        t1 = -1.0;
+                if (cube_dim[2] != 0)
+                    if (ins.z > (cube_dim[2] / 2) || ins.z < (-cube_dim[2] / 2))
+                        t1 = -1.0;
+            }
+            if (t2 > 0)
+            {
+                Vector ins = r->start + t2 * r->dir;
+                if (cube_dim[0] != 0)
+                    if (ins.x > (cube_dim[0] / 2) || ins.x < (-cube_dim[0] / 2))
+                        t2 = -1.0;
+                if (cube_dim[1] != 0)
+                    if (ins.y > (cube_dim[1] / 2) || ins.y < (-cube_dim[1] / 2))
+                        t2 = -1.0;
+                if (cube_dim[2] != 0)
+                    if (ins.z > (cube_dim[2] / 2) || ins.z < (-cube_dim[2] / 2))
+                        t2 = -1.0;
+            }
+
+            if (t1 < t2)
+                t = t1;
+            else
+                t = t2;
+        }
+    }
+
+    Vector intersection_point = r->start + t * r->dir;
+
+    double* intersection_color = GetColorAt(intersection_point);
+    col[0] = intersection_color[0] * coefficients[0];
+    col[1] = intersection_color[1] * coefficients[0];
+    col[2] = intersection_color[2] * coefficients[0];
+
+    double Nx = 2 * eqn_coeff[0] * intersection_point.x + eqn_coeff[3] * intersection_point.y + eqn_coeff[4] * intersection_point.z + eqn_coeff[6];
+    double Ny = 2 * eqn_coeff[1] * intersection_point.y + eqn_coeff[3] * intersection_point.x + eqn_coeff[5] * intersection_point.z + eqn_coeff[7];
+    double Nz = 2 * eqn_coeff[2] * intersection_point.z + eqn_coeff[4] * intersection_point.x + eqn_coeff[5] * intersection_point.y + eqn_coeff[8];
+    Vector N(Nx, Ny, Nz);
+
+    for (auto it = pointLights.begin(); it != pointLights.end(); it++)
+    {
+        Vector ray_direction = (intersection_point - it->pos).normalize();
+        Ray point_ray(it->pos, ray_direction);
+
+        double t_ray_min = (intersection_point.x - it->pos.x) / ray_direction.x;
+        double dummyColor[3] = { 0,0,0 }, t_ray = -1.0;
+        for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
+        {
+            t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
+            if ((t_ray > 0) && (t_ray < t_ray_min))
+                break;
+        }
+
+        if ((t_ray > 0) && (t_ray < t_ray_min))
+            continue;
+
+        Vector L = (-1) * point_ray.dir;
+        Vector R = 2 * (L.dot(N)) * N - L;
+        Vector V = (-1) * r->dir;
+
+        double lambertValue = L.dot(N);
+        if (lambertValue < 0)
+            lambertValue = 0;
+
+        double phongValue = R.dot(V);
+        if (phongValue < 0)
+            phongValue = 0;
+
+        col[0] += it->color[0] * coefficients[1] * lambertValue;
+        col[1] += it->color[1] * coefficients[1] * lambertValue;
+        col[2] += it->color[2] * coefficients[1] * lambertValue;
+
+        col[0] += it->color[0] * coefficients[2] * pow(phongValue, shine);
+        col[1] += it->color[1] * coefficients[2] * pow(phongValue, shine);
+        col[2] += it->color[2] * coefficients[2] * pow(phongValue, shine);
+    }
+
+    for (auto it = spotLights.begin(); it != spotLights.end(); it++)
+    {
+        Vector ray_direction = (intersection_point - it->src.pos).normalize();
+        Ray point_ray(it->src.pos, ray_direction);
+
+        double ray_angle = acos(it->dir.dot(ray_direction)) * 180 / pi;
+        if (ray_angle > it->cutoff_angle)
+            continue;
+
+        double t_ray_min = (intersection_point.x - it->src.pos.x) / ray_direction.x;
+        double dummyColor[3] = { 0,0,0 }, t_ray = -1.0;
+        for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
+        {
+            t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
+            if ((t_ray > 0) && (t_ray < t_ray_min))
+                break;
+        }
+
+        if ((t_ray > 0) && (t_ray < t_ray_min))
+            continue;
+
+        Vector L = (-1) * point_ray.dir;
+        Vector R = 2 * (L.dot(N)) * N - L;
+        Vector V = (-1) * r->dir;
+
+        double lambertValue = L.dot(N);
+        if (lambertValue < 0)
+            lambertValue = 0;
+
+        double phongValue = R.dot(V);
+        if (phongValue < 0)
+            phongValue = 0;
+
+        col[0] += it->src.color[0] * coefficients[1] * lambertValue;
+        col[1] += it->src.color[1] * coefficients[1] * lambertValue;
+        col[2] += it->src.color[2] * coefficients[1] * lambertValue;
+
+        col[0] += it->src.color[0] * coefficients[2] * pow(phongValue, shine);
+        col[1] += it->src.color[1] * coefficients[2] * pow(phongValue, shine);
+        col[2] += it->src.color[2] * coefficients[2] * pow(phongValue, shine);
+    }
+
+    delete[] intersection_color;
+
+    return t;
+}
+
+
 double Floor::intersect(Ray* r, double* col, int level)
 {
     double t = -r->start.z / r->dir.z;
@@ -724,11 +899,12 @@ double Floor::intersect(Ray* r, double* col, int level)
         return t;
 
     Vector intersection_point = r->start + t * r->dir;
+    //std::cout <<  intersection_point.x << " " << intersection_point.y << " " << intersection_point.z << std::endl;
 
     double* intersection_color = GetColorAt(intersection_point);
-    col[0] = intersection_color[0] * coefficients[0];
-    col[1] = intersection_color[1] * coefficients[0];
-    col[2] = intersection_color[2] * coefficients[0];
+    col[0] = intersection_color[0];
+    col[1] = intersection_color[1];
+    col[2] = intersection_color[2];
 
     Vector N(0,0,1);
 
