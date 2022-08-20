@@ -1,12 +1,18 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<math.h>
+#include <iostream>
+#include <fstream>
 #include<vector>
 
 #include <GL\freeglut.h>
 
 #define pi (2*acos(0.0))
 #define TOLERANCE 0.000001
+#define T_MAX 100000
+#define EPS 0.001
+
+extern int recursion_level;
 
 struct Point {
     double x, y, z;
@@ -502,11 +508,11 @@ double Sphere::intersect(Ray* r, double* col, int level)
         for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
         {
             t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
-            if ((t_ray > 0) && (t_ray < t_ray_min))
+            if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
                 break;
         }
 
-        if ((t_ray > 0) && (t_ray < t_ray_min))
+        if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
             continue;
 
         Vector L = (-1) * point_ray.dir;
@@ -520,14 +526,16 @@ double Sphere::intersect(Ray* r, double* col, int level)
         double phongValue = R.dot(V);
         if (phongValue < 0)
             phongValue = 0;
+        else
+            phongValue = pow(phongValue, shine);
 
         col[0] += it->color[0] * coefficients[1] * lambertValue;
         col[1] += it->color[1] * coefficients[1] * lambertValue;
         col[2] += it->color[2] * coefficients[1] * lambertValue;
 
-        col[0] += it->color[0] * coefficients[2] * pow(phongValue, shine);
-        col[1] += it->color[1] * coefficients[2] * pow(phongValue, shine);
-        col[2] += it->color[2] * coefficients[2] * pow(phongValue, shine);
+        col[0] += it->color[0] * coefficients[2] * phongValue;
+        col[1] += it->color[1] * coefficients[2] * phongValue;
+        col[2] += it->color[2] * coefficients[2] * phongValue;
     }
 
     for (auto it = spotLights.begin(); it != spotLights.end(); it++)
@@ -544,11 +552,11 @@ double Sphere::intersect(Ray* r, double* col, int level)
         for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
         {
             t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
-            if ((t_ray > 0) && (t_ray < t_ray_min))
+            if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
                 break;
         }
 
-        if ((t_ray > 0) && (t_ray < t_ray_min))
+        if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
             continue;
 
         Vector L = (-1) * point_ray.dir;
@@ -562,14 +570,60 @@ double Sphere::intersect(Ray* r, double* col, int level)
         double phongValue = R.dot(V);
         if (phongValue < 0)
             phongValue = 0;
+        else
+            phongValue = pow(phongValue, shine);
 
         col[0] += it->src.color[0] * coefficients[1] * lambertValue;
         col[1] += it->src.color[1] * coefficients[1] * lambertValue;
         col[2] += it->src.color[2] * coefficients[1] * lambertValue;
 
-        col[0] += it->src.color[0] * coefficients[2] * pow(phongValue,shine);
-        col[1] += it->src.color[1] * coefficients[2] * pow(phongValue, shine);
-        col[2] += it->src.color[2] * coefficients[2] * pow(phongValue, shine);
+        col[0] += it->src.color[0] * coefficients[2] * phongValue;
+        col[1] += it->src.color[1] * coefficients[2] * phongValue;
+        col[2] += it->src.color[2] * coefficients[2] * phongValue;
+    }
+
+    if (level >= recursion_level)
+        return t;
+
+    Vector view_ray = (-1) * r->dir;
+    Vector reflected_ray_dir = 2 * (view_ray.dot(N)) * N - view_ray;
+    Ray reflected_ray(intersection_point + EPS * N, reflected_ray_dir);
+
+    int nearest_obj = -1;
+    double t_ref = T_MAX;
+
+    double dummycolor[3] = { 0,0,0 };
+    for (int i = 0; i < objects.size(); i++)
+    {
+        double t_val = objects[i]->intersect(&reflected_ray, dummycolor, 0);
+        if ((t_val > 0) && (t_val < t_ref))
+        {
+            t_ref = t_val;
+            nearest_obj = i;
+        }
+    }
+
+    if (nearest_obj != -1)
+    {
+        double* ref_color = new double[3];
+        for (int i = 0; i < 3; i++)
+            ref_color[i] = 0;
+
+        double t_ref_min = objects[nearest_obj]->intersect(&reflected_ray, ref_color, level + 1);
+
+        col[0] += ref_color[0] * coefficients[3];
+        col[1] += ref_color[1] * coefficients[3];
+        col[2] += ref_color[2] * coefficients[3];
+
+        delete[] ref_color;
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (col[i] < 0)
+            col[i] = 0;
+        else if (col[i] > 1.0)
+            col[i] = 1.0;
     }
 
     delete[] intersection_color;
@@ -599,7 +653,7 @@ double Triangle::intersect(Ray* r, double* col, int level)
     matBeta[1][2] = r->dir.y;
     matBeta[2][0] = points[0].z - r->start.z;
     matBeta[2][1] = points[0].z - points[2].z;
-    matBeta[2][2] = r->dir.y;
+    matBeta[2][2] = r->dir.z;
 
     matGamma[0][0] = points[0].x - points[1].x;
     matGamma[0][1] = points[0].x - r->start.x;
@@ -623,6 +677,9 @@ double Triangle::intersect(Ray* r, double* col, int level)
 
     double detA = det(matA);
 
+    if (abs(detA) < TOLERANCE)
+        return -1.0;
+
     double beta = det(matBeta) / detA;
     double gamma = det(matGamma) / detA;
     double t = det(matT) / detA;
@@ -640,7 +697,7 @@ double Triangle::intersect(Ray* r, double* col, int level)
     col[1] = intersection_color[1] * coefficients[0];
     col[2] = intersection_color[2] * coefficients[0];
 
-    Vector N = (points[1] - points[0]).cross(points[2] - points[0]);
+    Vector N = (points[1] - points[0]).cross(points[2] - points[0]).normalize();
 
     for (auto it = pointLights.begin(); it != pointLights.end(); it++)
     {
@@ -652,11 +709,11 @@ double Triangle::intersect(Ray* r, double* col, int level)
         for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
         {
             t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
-            if ((t_ray > 0) && (t_ray < t_ray_min))
+            if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
                 break;
         }
 
-        if ((t_ray > 0) && (t_ray < t_ray_min))
+        if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
             continue;
 
         Vector L = (-1) * point_ray.dir;
@@ -670,14 +727,16 @@ double Triangle::intersect(Ray* r, double* col, int level)
         double phongValue = R.dot(V);
         if (phongValue < 0)
             phongValue = 0;
+        else
+            phongValue = pow(phongValue, shine);
 
         col[0] += it->color[0] * coefficients[1] * lambertValue;
         col[1] += it->color[1] * coefficients[1] * lambertValue;
         col[2] += it->color[2] * coefficients[1] * lambertValue;
 
-        col[0] += it->color[0] * coefficients[2] * pow(phongValue, shine);
-        col[1] += it->color[1] * coefficients[2] * pow(phongValue, shine);
-        col[2] += it->color[2] * coefficients[2] * pow(phongValue, shine);
+        col[0] += it->color[0] * coefficients[2] * phongValue;
+        col[1] += it->color[1] * coefficients[2] * phongValue;
+        col[2] += it->color[2] * coefficients[2] * phongValue;
     }
 
     for (auto it = spotLights.begin(); it != spotLights.end(); it++)
@@ -694,11 +753,11 @@ double Triangle::intersect(Ray* r, double* col, int level)
         for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
         {
             t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
-            if ((t_ray > 0) && (t_ray < t_ray_min))
+            if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
                 break;
         }
 
-        if ((t_ray > 0) && (t_ray < t_ray_min))
+        if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
             continue;
 
         Vector L = (-1) * point_ray.dir;
@@ -712,14 +771,60 @@ double Triangle::intersect(Ray* r, double* col, int level)
         double phongValue = R.dot(V);
         if (phongValue < 0)
             phongValue = 0;
+        else
+            phongValue = pow(phongValue, shine);
 
         col[0] += it->src.color[0] * coefficients[1] * lambertValue;
         col[1] += it->src.color[1] * coefficients[1] * lambertValue;
         col[2] += it->src.color[2] * coefficients[1] * lambertValue;
 
-        col[0] += it->src.color[0] * coefficients[2] * pow(phongValue, shine);
-        col[1] += it->src.color[1] * coefficients[2] * pow(phongValue, shine);
-        col[2] += it->src.color[2] * coefficients[2] * pow(phongValue, shine);
+        col[0] += it->src.color[0] * coefficients[2] * phongValue;
+        col[1] += it->src.color[1] * coefficients[2] * phongValue;
+        col[2] += it->src.color[2] * coefficients[2] * phongValue;
+    }
+
+    if (level >= recursion_level)
+        return t;
+
+    Vector view_ray = (-1) * r->dir;
+    Vector reflected_ray_dir = 2 * (view_ray.dot(N)) * N - view_ray;
+    Ray reflected_ray(intersection_point + EPS* N, reflected_ray_dir);
+
+    int nearest_obj = -1;
+    double t_ref = T_MAX;
+
+    double dummycolor[3] = { 0,0,0 };
+    for (int i = 0; i < objects.size(); i++)
+    {
+        double t_val = objects[i]->intersect(&reflected_ray, dummycolor, 0);
+        if ((t_val > 0) && (t_val < t_ref))
+        {
+            t_ref = t_val;
+            nearest_obj = i;
+        }
+    }
+
+    if (nearest_obj != -1)
+    {
+        double* ref_color = new double[3];
+        for (int i = 0; i < 3; i++)
+            ref_color[i] = 0;
+
+        double t_ref_min = objects[nearest_obj]->intersect(&reflected_ray, ref_color, level + 1);
+
+        col[0] += ref_color[0] * coefficients[3];
+        col[1] += ref_color[1] * coefficients[3];
+        col[2] += ref_color[2] * coefficients[3];
+
+        delete[] ref_color;
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (col[i] < 0)
+            col[i] = 0;
+        else if (col[i] > 1.0)
+            col[i] = 1.0;
     }
 
     delete[] intersection_color;
@@ -744,9 +849,9 @@ double Quadric::intersect(Ray* r, double* col, int level)
     if (determinant < 0)
         t = -1.0;
     else {
-        double t1 = ( -coeff_b + sqrt(determinant)) / 2 * coeff_a;
-        double t2 = ( -coeff_b - sqrt(determinant)) / 2 * coeff_a;
-
+        double t1 = ( -coeff_b + sqrt(determinant)) / (2 * coeff_a);
+        double t2 = ( -coeff_b - sqrt(determinant)) / (2 * coeff_a);
+             
         if (t1 < 0 && t2 < 0)
             t = -1.0;
         else
@@ -755,35 +860,46 @@ double Quadric::intersect(Ray* r, double* col, int level)
             {
                 Vector ins = r->start + t1 * r->dir;
                 if (cube_dim[0] != 0)
-                    if (ins.x > (cube_dim[0] / 2) || ins.x < (-cube_dim[0] / 2))
+                    if (ins.x > cube_dim[0] || ins.x < -cube_dim[0])
                         t1 = -1.0;
                 if (cube_dim[1] != 0)
-                    if (ins.y > (cube_dim[1] / 2) || ins.y < (-cube_dim[1] / 2))
+                    if (ins.y > cube_dim[1] || ins.y < -cube_dim[1])
                         t1 = -1.0;
                 if (cube_dim[2] != 0)
-                    if (ins.z > (cube_dim[2] / 2) || ins.z < (-cube_dim[2] / 2))
+                    if (ins.z > cube_dim[2] || ins.z < -cube_dim[2])
                         t1 = -1.0;
             }
             if (t2 > 0)
             {
                 Vector ins = r->start + t2 * r->dir;
                 if (cube_dim[0] != 0)
-                    if (ins.x > (cube_dim[0] / 2) || ins.x < (-cube_dim[0] / 2))
+                    if (ins.x > cube_dim[0] || ins.x < -cube_dim[0])
                         t2 = -1.0;
                 if (cube_dim[1] != 0)
-                    if (ins.y > (cube_dim[1] / 2) || ins.y < (-cube_dim[1] / 2))
+                    if (ins.y > cube_dim[1] || ins.y < -cube_dim[1])
                         t2 = -1.0;
                 if (cube_dim[2] != 0)
-                    if (ins.z > (cube_dim[2] / 2) || ins.z < (-cube_dim[2] / 2))
+                    if (ins.z > cube_dim[2] || ins.z < -cube_dim[2])
                         t2 = -1.0;
             }
 
-            if (t1 < t2)
+            if (t1 < 0)
+                t = t2;
+            else if (t2 < 0)
                 t = t1;
             else
-                t = t2;
+            {
+                if (t1 < t2)
+                    t = t1;
+                else
+                    t = t2;
+            }
         }
     }
+
+
+    if (level == 0)
+        return t;
 
     Vector intersection_point = r->start + t * r->dir;
 
@@ -796,6 +912,7 @@ double Quadric::intersect(Ray* r, double* col, int level)
     double Ny = 2 * eqn_coeff[1] * intersection_point.y + eqn_coeff[3] * intersection_point.x + eqn_coeff[5] * intersection_point.z + eqn_coeff[7];
     double Nz = 2 * eqn_coeff[2] * intersection_point.z + eqn_coeff[4] * intersection_point.x + eqn_coeff[5] * intersection_point.y + eqn_coeff[8];
     Vector N(Nx, Ny, Nz);
+    N = N.normalize();
 
     for (auto it = pointLights.begin(); it != pointLights.end(); it++)
     {
@@ -807,11 +924,11 @@ double Quadric::intersect(Ray* r, double* col, int level)
         for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
         {
             t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
-            if ((t_ray > 0) && (t_ray < t_ray_min))
+            if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
                 break;
         }
 
-        if ((t_ray > 0) && (t_ray < t_ray_min))
+        if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
             continue;
 
         Vector L = (-1) * point_ray.dir;
@@ -825,14 +942,16 @@ double Quadric::intersect(Ray* r, double* col, int level)
         double phongValue = R.dot(V);
         if (phongValue < 0)
             phongValue = 0;
+        else
+            phongValue = pow(phongValue, shine);
 
         col[0] += it->color[0] * coefficients[1] * lambertValue;
         col[1] += it->color[1] * coefficients[1] * lambertValue;
         col[2] += it->color[2] * coefficients[1] * lambertValue;
 
-        col[0] += it->color[0] * coefficients[2] * pow(phongValue, shine);
-        col[1] += it->color[1] * coefficients[2] * pow(phongValue, shine);
-        col[2] += it->color[2] * coefficients[2] * pow(phongValue, shine);
+        col[0] += it->color[0] * coefficients[2] * phongValue;
+        col[1] += it->color[1] * coefficients[2] * phongValue;
+        col[2] += it->color[2] * coefficients[2] * phongValue;
     }
 
     for (auto it = spotLights.begin(); it != spotLights.end(); it++)
@@ -849,11 +968,11 @@ double Quadric::intersect(Ray* r, double* col, int level)
         for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
         {
             t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
-            if ((t_ray > 0) && (t_ray < t_ray_min))
+            if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
                 break;
         }
 
-        if ((t_ray > 0) && (t_ray < t_ray_min))
+        if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
             continue;
 
         Vector L = (-1) * point_ray.dir;
@@ -867,14 +986,60 @@ double Quadric::intersect(Ray* r, double* col, int level)
         double phongValue = R.dot(V);
         if (phongValue < 0)
             phongValue = 0;
+        else
+            phongValue = pow(phongValue, shine);
 
         col[0] += it->src.color[0] * coefficients[1] * lambertValue;
         col[1] += it->src.color[1] * coefficients[1] * lambertValue;
         col[2] += it->src.color[2] * coefficients[1] * lambertValue;
 
-        col[0] += it->src.color[0] * coefficients[2] * pow(phongValue, shine);
-        col[1] += it->src.color[1] * coefficients[2] * pow(phongValue, shine);
-        col[2] += it->src.color[2] * coefficients[2] * pow(phongValue, shine);
+        col[0] += it->src.color[0] * coefficients[2] * phongValue;
+        col[1] += it->src.color[1] * coefficients[2] * phongValue;
+        col[2] += it->src.color[2] * coefficients[2] * phongValue;
+    }
+
+    if (level >= recursion_level)
+        return t;
+
+    Vector view_ray = (-1) * r->dir;
+    Vector reflected_ray_dir = 2 * (view_ray.dot(N)) * N - view_ray;
+    Ray reflected_ray(intersection_point + EPS * N, reflected_ray_dir);
+
+    int nearest_obj = -1;
+    double t_ref = T_MAX;
+
+    double dummycolor[3] = { 0,0,0 };
+    for (int i = 0; i < objects.size(); i++)
+    {
+        double t_val = objects[i]->intersect(&reflected_ray, dummycolor, 0);
+        if ((t_val > 0) && (t_val < t_ref))
+        {
+            t_ref = t_val;
+            nearest_obj = i;
+        }
+    }
+
+    if (nearest_obj != -1)
+    {
+        double* ref_color = new double[3];
+        for (int i = 0; i < 3; i++)
+            ref_color[i] = 0;
+
+        double t_ref_min = objects[nearest_obj]->intersect(&reflected_ray, ref_color, level + 1);
+
+        col[0] += ref_color[0] * coefficients[3];
+        col[1] += ref_color[1] * coefficients[3];
+        col[2] += ref_color[2] * coefficients[3];
+
+        delete[] ref_color;
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (col[i] < 0)
+            col[i] = 0;
+        else if (col[i] > 1.0)
+            col[i] = 1.0;
     }
 
     delete[] intersection_color;
@@ -899,12 +1064,11 @@ double Floor::intersect(Ray* r, double* col, int level)
         return t;
 
     Vector intersection_point = r->start + t * r->dir;
-    //std::cout <<  intersection_point.x << " " << intersection_point.y << " " << intersection_point.z << std::endl;
 
     double* intersection_color = GetColorAt(intersection_point);
-    col[0] = intersection_color[0];
-    col[1] = intersection_color[1];
-    col[2] = intersection_color[2];
+    col[0] = intersection_color[0]*coefficients[0];
+    col[1] = intersection_color[1]*coefficients[0];
+    col[2] = intersection_color[2]*coefficients[0];
 
     Vector N(0,0,1);
 
@@ -918,11 +1082,11 @@ double Floor::intersect(Ray* r, double* col, int level)
         for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
         {
             t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
-            if ((t_ray > 0) && (t_ray < t_ray_min))
+            if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
                 break;
         }
 
-        if ((t_ray > 0) && (t_ray < t_ray_min))
+        if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
             continue;
 
         Vector L = (-1) * point_ray.dir;
@@ -936,14 +1100,16 @@ double Floor::intersect(Ray* r, double* col, int level)
         double phongValue = R.dot(V);
         if (phongValue < 0)
             phongValue = 0;
+        else
+            phongValue = pow(phongValue, shine);
 
         col[0] += it->color[0] * coefficients[1] * lambertValue;
         col[1] += it->color[1] * coefficients[1] * lambertValue;
         col[2] += it->color[2] * coefficients[1] * lambertValue;
 
-        col[0] += it->color[0] * coefficients[2] * pow(phongValue, shine);
-        col[1] += it->color[1] * coefficients[2] * pow(phongValue, shine);
-        col[2] += it->color[2] * coefficients[2] * pow(phongValue, shine);
+        col[0] += it->color[0] * coefficients[2] * phongValue;
+        col[1] += it->color[1] * coefficients[2] * phongValue;
+        col[2] += it->color[2] * coefficients[2] * phongValue;
     }
 
     for (auto it = spotLights.begin(); it != spotLights.end(); it++)
@@ -960,11 +1126,11 @@ double Floor::intersect(Ray* r, double* col, int level)
         for (auto it_obj = objects.begin(); it_obj != objects.end(); it_obj++)
         {
             t_ray = (*it_obj)->intersect(&point_ray, dummyColor, 0);
-            if ((t_ray > 0) && (t_ray < t_ray_min))
+            if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
                 break;
         }
 
-        if ((t_ray > 0) && (t_ray < t_ray_min))
+        if ((t_ray > 0) && (t_ray_min - t_ray) > EPS)
             continue;
 
         Vector L = (-1) * point_ray.dir;
@@ -978,15 +1144,62 @@ double Floor::intersect(Ray* r, double* col, int level)
         double phongValue = R.dot(V);
         if (phongValue < 0)
             phongValue = 0;
+        else
+            phongValue = pow(phongValue, shine);
 
         col[0] += it->src.color[0] * coefficients[1] * lambertValue;
         col[1] += it->src.color[1] * coefficients[1] * lambertValue;
         col[2] += it->src.color[2] * coefficients[1] * lambertValue;
 
-        col[0] += it->src.color[0] * coefficients[2] * pow(phongValue, shine);
-        col[1] += it->src.color[1] * coefficients[2] * pow(phongValue, shine);
-        col[2] += it->src.color[2] * coefficients[2] * pow(phongValue, shine);
+        col[0] += it->src.color[0] * coefficients[2] * phongValue;
+        col[1] += it->src.color[1] * coefficients[2] * phongValue;
+        col[2] += it->src.color[2] * coefficients[2] * phongValue;
     }
+
+    if (level >= recursion_level)
+        return t;
+
+    Vector view_ray = (-1) * r->dir;
+    Vector reflected_ray_dir = 2 * (view_ray.dot(N)) * N - view_ray;
+    Ray reflected_ray(intersection_point + EPS * N, reflected_ray_dir);
+
+    int nearest_obj = -1;
+    double t_ref = T_MAX;
+
+    double dummycolor[3] = { 0,0,0 };
+    for (int i = 0; i < objects.size(); i++)
+    {
+        double t_val = objects[i]->intersect(&reflected_ray, dummycolor, 0);
+        if ((t_val > 0) && (t_val < t_ref))
+        {
+            t_ref = t_val;
+            nearest_obj = i;
+        }
+    }
+
+    if (nearest_obj != -1)
+    {   
+        double* ref_color = new double[3];
+        for (int i = 0; i < 3; i++)
+            ref_color[i] = 0;
+
+        double t_ref_min = objects[nearest_obj]->intersect(&reflected_ray, ref_color, level + 1);
+
+        col[0] += ref_color[0] * coefficients[3];
+        col[1] += ref_color[1] * coefficients[3];
+        col[2] += ref_color[2] * coefficients[3];
+
+        delete[] ref_color;
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (col[i] < 0)
+            col[i] = 0;
+        else if (col[i] > 1.0)
+            col[i] = 1.0;
+    }
+
 
     delete[] intersection_color;
 

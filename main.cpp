@@ -28,12 +28,12 @@ std::vector<SpotLight> spotLights;
 
 void initGL()
 {   
-    windowHeight = 1;
-    windowWidth = 1;
-    viewAngle = 90.0;
+    windowHeight = 100;
+    windowWidth = 100;
+    viewAngle = 80.0;
     capture_no = 11;
 
-    camera_speed = 2.0;
+    camera_speed = 4.0;
     yaw_step = pi / 36;
     pitch_step = pi / 36;
     roll_step = pi / 36;
@@ -44,7 +44,7 @@ void initGL()
 
     direc.x = -100.0;
     direc.y = 0;
-    direc.z = -50.0;
+    direc.z = 0;
 
     camera_up.x = 0;
     camera_up.y = 0;
@@ -136,6 +136,9 @@ void loadData()
     }
 
     Floor *f = new Floor(Vector(0, 0, 0), 1000, 20);
+    double floor_coefficients[4] = { 0.4,0.2,0.2,0.2 };
+    f->SetCoefficients(floor_coefficients);
+    f->SetShine(10);
     objects.push_back(f);
 
     fin >> no_point_light;
@@ -191,6 +194,8 @@ void capture()
 
     top_left = top_left + r * 0.5 * du - u * 0.5 * dv;
 
+    std::cout << "Capture Started" << std::endl;
+
     double t_min;
     for (int i = 0; i < img_dim; i++)
     {
@@ -200,8 +205,6 @@ void capture()
 
             Ray r(camera_pos, (cur_pixel - camera_pos).normalize());
 
-            //std::cout << i << " " << j << std::endl;
-            
             int nearest_obj = -1;
             double t = T_MAX;
 
@@ -216,8 +219,6 @@ void capture()
                 }
             }
 
-            //std::cout << t <<" " << nearest_obj << std::endl;
-
             if (nearest_obj == -1)
                 continue;
 
@@ -228,9 +229,13 @@ void capture()
             t_min = objects[nearest_obj]->intersect(&r, pixel_color, 1);
             image.set_pixel(i,j, pixel_color[0]*255 , pixel_color[1] * 255, pixel_color[2]*255);
 
+            //std::cout << i << " " << j << std::endl;
+
             delete[] pixel_color;
         }
     }
+
+    std::cout << "Capture Finished" << std::endl;
 
     std::string capture_file = "output_" + std::to_string(capture_no) + ".bmp";
     capture_no++;
@@ -250,6 +255,24 @@ void display(void) {
 
     for (auto it = objects.begin(); it != objects.end(); it++)
         (*it)->draw();
+
+    for (auto it = pointLights.begin(); it != pointLights.end(); it++)
+    {
+        glPointSize(5);
+        glColor3f(it->color[0], it->color[1], it->color[2]);
+        glBegin(GL_POINTS); {
+            glVertex3f(it->pos.x, it->pos.y, it->pos.z);
+        } glEnd();
+    }
+
+    for (auto it = spotLights.begin(); it != spotLights.end(); it++)
+    {
+        glPointSize(5);
+        glColor3f(it->src.color[0], it->src.color[1], it->src.color[2]);
+        glBegin(GL_POINTS); {
+            glVertex3f(it->src.pos.x, it->src.pos.y, it->src.pos.z);
+        } glEnd();
+    }
 
     glutSwapBuffers();
 }
